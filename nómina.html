@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nómina Soinsolar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #f4f6f8;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+        }
+        .section-header {
+            font-weight: bold;
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: #3182ce;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: scale(1.05);
+        }
+        .btn-secondary {
+            background: #4a5568;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-secondary:hover {
+            background: #2d3748;
+            transform: scale(1.05);
+        }
+        #resumen {
+            background: #f9fafb;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        #resumen .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 16px;
+            font-size: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        #resumen .item:last-child {
+            border-bottom: none;
+        }
+        #resumen .item strong {
+            color: #2d3748;
+        }
+        #resumen .highlight {
+            background: #ebf8ff;
+            font-weight: bold;
+            color: #2b6cb0;
+        }
+        #resumen .deduccion {
+            color: #c53030;
+        }
+        #resumen .total {
+            background: #f0fff4;
+            font-weight: bold;
+            color: #2f855a;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="bg-blue-700 text-white p-4 shadow">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold"><i class="fas fa-solar-panel mr-2"></i>Soinsolar | Nómina</h1>
+        </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 px-4">
+        <!-- FORMULARIO -->
+        <div class="card">
+            <h2 class="section-header"><i class="fas fa-user-circle"></i>Datos del Empleado</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <input type="text" id="nombre" placeholder="Nombre completo" class="border rounded p-3 w-full">
+                <input type="text" id="identificacion" placeholder="Identificación" class="border rounded p-3 w-full">
+
+                <!-- CAMPO CARGO COMO LISTA DESPLEGABLE -->
+                <select id="cargo" class="border rounded p-3 w-full">
+                    <option value="">Seleccione un cargo</option>
+                    <option value="Community Manager">Community Manager</option>
+                    <option value="Director Comercial">Director Comercial</option>
+                </select>
+
+                <input type="text" id="contrato" placeholder="N° Contrato" class="border rounded p-3 w-full">
+            </div>
+
+            <h2 class="section-header"><i class="fas fa-calculator"></i>Datos de Nómina</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <input type="month" id="periodo" class="border rounded p-3 w-full">
+                <input type="number" id="diasTrabajados" placeholder="Días trabajados" class="border rounded p-3 w-full">
+                <input type="number" id="salarioDevengado" placeholder="Salario devengado" class="border rounded p-3 w-full">
+                <input type="number" id="auxilioTransporte" placeholder="Auxilio transporte" class="border rounded p-3 w-full">
+                <input type="number" id="descuentoEPS" placeholder="Descuento EPS" class="border rounded p-3 w-full">
+                <input type="number" id="descuentoAFP" placeholder="Descuento AFP" class="border rounded p-3 w-full">
+            </div>
+
+            <button onclick="calcularNomina()" class="btn-primary w-full"><i class="fas fa-calculator mr-2"></i>Calcular Nómina</button>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div id="resultadoSection" class="card hidden">
+            <h2 class="section-header"><i class="fas fa-file-invoice-dollar"></i>Resumen de Nómina</h2>
+            <div id="resumen" class="text-gray-700 text-base"></div>
+            <div class="grid grid-cols-2 gap-4 mt-6">
+                <button onclick="imprimirDesprendible()" class="btn-primary"><i class="fas fa-print mr-2"></i>Imprimir</button>
+                <button onclick="descargarPDF()" class="btn-secondary"><i class="fas fa-download mr-2"></i>Descargar PDF</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let datosNomina = {};
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(value);
+        }
+
+        function calcularNomina() {
+            datosNomina = {
+                nombre: document.getElementById('nombre').value,
+                identificacion: document.getElementById('identificacion').value,
+                cargo: document.getElementById('cargo').value,
+                contrato: document.getElementById('contrato').value,
+                periodo: document.getElementById('periodo').value,
+                salario: parseFloat(document.getElementById('salarioDevengado').value) || 0,
+                auxilio: parseFloat(document.getElementById('auxilioTransporte').value) || 0,
+                eps: parseFloat(document.getElementById('descuentoEPS').value) || 0,
+                afp: parseFloat(document.getElementById('descuentoAFP').value) || 0
+            };
+
+            if (!datosNomina.nombre || !datosNomina.identificacion || !datosNomina.cargo || !datosNomina.contrato || !datosNomina.periodo) {
+                alert('Por favor complete todos los campos');
+                return;
+            }
+
+            const totalDevengados = datosNomina.salario + datosNomina.auxilio;
+            const totalDeducidos = datosNomina.eps + datosNomina.afp;
+            const neto = totalDevengados - totalDeducidos;
+
+            const resumenHTML = `
+                <div class="item"><strong>Empleado:</strong> ${datosNomina.nombre}</div>
+                <div class="item"><strong>Identificación:</strong> ${datosNomina.identificacion}</div>
+                <div class="item"><strong>Cargo:</strong> ${datosNomina.cargo}</div>
+                <div class="item"><strong>Contrato:</strong> ${datosNomina.contrato}</div>
+                <div class="item"><strong>Periodo:</strong> ${datosNomina.periodo}</div>
+                <div class="item highlight"><strong>Salario Devengado:</strong> ${formatCurrency(datosNomina.salario)}</div>
+                <div class="item"><strong>Auxilio Transporte:</strong> ${formatCurrency(datosNomina.auxilio)}</div>
+                <div class="item highlight"><strong>Total Devengados:</strong> ${formatCurrency(totalDevengados)}</div>
+                <div class="item deduccion"><strong>Descuento EPS:</strong> ${formatCurrency(datosNomina.eps)}</div>
+                <div class="item deduccion"><strong>Descuento AFP:</strong> ${formatCurrency(datosNomina.afp)}</div>
+                <div class="item"><strong>Total Deducidos:</strong> ${formatCurrency(totalDeducidos)}</div>
+                <div class="item total"><strong>Neto a Pagar:</strong> ${formatCurrency(neto)}</div>
+            `;
+
+            datosNomina.totalDevengados = totalDevengados;
+            datosNomina.totalDeducidos = totalDeducidos;
+            datosNomina.neto = neto;
+
+            document.getElementById('resumen').innerHTML = resumenHTML;
+            document.getElementById('resultadoSection').classList.remove('hidden');
+        }
+
+        function imprimirDesprendible() {
+            window.print();
+        }
+
+        function descargarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.text("Comprobante de Pago", 70, 20);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+
+            doc.autoTable({
+                startY: 30,
+                head: [['Detalle', 'Valor']],
+                body: [
+                    ['Empleado', datosNomina.nombre],
+                    ['Identificación', datosNomina.identificacion],
+                    ['Cargo', datosNomina.cargo],
+                    ['Contrato', datosNomina.contrato],
+                    ['Periodo', datosNomina.periodo],
+                    ['Salario Devengado', formatCurrency(datosNomina.salario)],
+                    ['Auxilio Transporte', formatCurrency(datosNomina.auxilio)],
+                    ['Total Devengados', formatCurrency(datosNomina.totalDevengados)],
+                    ['Descuento EPS', formatCurrency(datosNomina.eps)],
+                    ['Descuento AFP', formatCurrency(datosNomina.afp)],
+                    ['Total Deducidos', formatCurrency(datosNomina.totalDeducidos)],
+                    ['Neto a Pagar', formatCurrency(datosNomina.neto)]
+                ],
+                theme: 'striped',
+                headStyles: { fillColor: [49, 130, 206], textColor: 255, fontStyle: 'bold' },
+                bodyStyles: { fontSize: 11 },
+                styles: { cellPadding: 3, fontSize: 11 }
+            });
+
+            doc.setFontSize(10);
+            doc.text("Este comprobante ha sido generado por Soinsolar | Gestión de Nómina", 20, doc.lastAutoTable.finalY + 10);
+            doc.save("comprobante_pago.pdf");
+        }
+    </script>
+</body>
+</html>
